@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - {{ settings.panel_name }}{% endblock %}
+{% block content %}
+<div class="main-container">
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            {% if settings.logo %}
+            <img src="{{ settings.logo }}" alt="Logo" class="sidebar-logo">
+            {% else %}
+            <i class="fas fa-server sidebar-icon"></i>
+            {% endif %}
+            <h2>{{ settings.panel_name }}</h2>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li class="active">
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i> Dashboard
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('plans') }}">
+                    <i class="fas fa-box"></i> Plans
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('profile') }}">
+                    <i class="fas fa-user"></i> Profile
+                </a>
+            </li>
+            {% if user.role == 'admin' %}
+            <li>
+                <a href="{{ url_for('admin_panel') }}">
+                    <i class="fas fa-cog"></i> Admin Panel
+                </a>
+            </li>
+            {% endif %}
+            <li>
+                <a href="{{ url_for('logout') }}">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <div class="welcome-message">
+                <h1>Welcome, {{ user.username }}!</h1>
+                <p>{{ current_time }}</p>
+            </div>
+            <div class="uptime-display">
+                <i class="fas fa-clock"></i> {{ uptime }}
+            </div>
+        </div>
+
+        {% if settings.announcement %}
+        <div class="announcement-banner">
+            <i class="fas fa-bullhorn"></i>
+            {{ settings.announcement }}
+        </div>
+        {% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon blue">
+                    <i class="fas fa-server"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Total VPS</h3>
+                    <p class="stat-value">{{ vps_list|length }}</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon green">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Active VPS</h3>
+                    <p class="stat-value">{{ active_vps }}</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon orange">
+                    <i class="fas fa-memory"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Total RAM</h3>
+                    <p class="stat-value">{{ total_ram }} GB</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon purple">
+                    <i class="fas fa-microchip"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Total CPU</h3>
+                    <p class="stat-value">{{ total_cpu }} Cores</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon red">
+                    <i class="fas fa-hdd"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Total Disk</h3>
+                    <p class="stat-value">{{ total_disk }} GB</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="vps-section">
+            <h2><i class="fas fa-server"></i> My VPS Instances</h2>
+            
+            {% if vps_list|length == 0 %}
+            <div class="no-vps">
+                <i class="fas fa-inbox"></i>
+                <h3>No VPS Found</h3>
+                <p>You don't have any VPS yet. Check out our plans to get started!</p>
+                <a href="{{ url_for('plans') }}" class="btn btn-primary">
+                    <i class="fas fa-box"></i> View Plans
+                </a>
+            </div>
+            {% else %}
+            <div class="vps-grid">
+                {% for vps in vps_list %}
+                <div class="vps-card {% if vps.suspended %}suspended{% endif %}">
+                    <div class="vps-header">
+                        <h3>{{ vps.hostname or vps.container_name }}</h3>
+                        <span class="status-badge {% if vps.status == 'running' and not vps.suspended %}running{% else %}stopped{% endif %}">
+                            {% if vps.suspended %}
+                                <i class="fas fa-ban"></i> Suspended
+                            {% elif vps.status == 'running' %}
+                                <i class="fas fa-circle"></i> Running
+                            {% else %}
+                                <i class="fas fa-circle"></i> Stopped
+                            {% endif %}
+                        </span>
+                    </div>
+                    
+                    <div class="vps-specs">
+                        <div class="spec">
+                            <i class="fas fa-memory"></i>
+                            <span>{{ vps.ram }}</span>
+                        </div>
+                        <div class="spec">
+                            <i class="fas fa-microchip"></i>
+                            <span>{{ vps.cpu }} CPU</span>
+                        </div>
+                        <div class="spec">
+                            <i class="fas fa-hdd"></i>
+                            <span>{{ vps.storage }}</span>
+                        </div>
+                    </div>
+
+                    <div class="vps-actions">
+                        <a href="{{ url_for('manage_vps', vps_id=vps.container_name) }}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-cog"></i> Manage
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

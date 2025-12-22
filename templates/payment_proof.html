@@ -1,0 +1,609 @@
+{% extends "base.html" %}
+{% block title %}Submit Payment Proof - {{ settings.panel_name }}{% endblock %}
+{% block content %}
+<div class="main-container">
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            {% if settings.logo %}
+            <img src="{{ settings.logo }}" alt="Logo" class="sidebar-logo">
+            {% else %}
+            <i class="fas fa-server sidebar-icon"></i>
+            {% endif %}
+            <h2>{{ settings.panel_name }}</h2>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li>
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i> Dashboard
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('plans') }}">
+                    <i class="fas fa-box"></i> Plans
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('manage_vps') }}">
+                    <i class="fas fa-server"></i> My VPS
+                </a>
+            </li>
+            <li class="active">
+                <a href="{{ url_for('payment_proof') }}">
+                    <i class="fas fa-credit-card"></i> Add Balance
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('profile') }}">
+                    <i class="fas fa-user"></i> Profile
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('logout') }}">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <div class="welcome-message">
+                <h1><i class="fas fa-credit-card"></i> Add Balance</h1>
+                <p>Submit payment proof to add balance to your account</p>
+            </div>
+            <div class="balance-display">
+                <i class="fas fa-wallet"></i> ₹{{ session.get('balance', 0) }}
+            </div>
+        </div>
+
+        <div class="payment-container">
+            <div class="payment-info-section">
+                <div class="info-card">
+                    <h2><i class="fas fa-info-circle"></i> Payment Information</h2>
+                    
+                    {% if settings.qr_code %}
+                    <div class="qr-code-container">
+                        <h3><i class="fas fa-qrcode"></i> Scan QR Code</h3>
+                        <img src="{{ settings.qr_code }}" alt="UPI QR Code" class="qr-code">
+                    </div>
+                    {% endif %}
+
+                    {% if settings.upi_id %}
+                    <div class="upi-info">
+                        <h3><i class="fas fa-university"></i> UPI ID</h3>
+                        <div class="upi-id-box">
+                            <code id="upiId">{{ settings.upi_id }}</code>
+                            <button class="btn-copy" onclick="copyUPI()">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if settings.payment_instructions %}
+                    <div class="instructions">
+                        <h3><i class="fas fa-list-ol"></i> Payment Instructions</h3>
+                        <div class="instructions-text">
+                            {{ settings.payment_instructions|safe }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="important-note">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div>
+                            <strong>Important:</strong>
+                            <ul>
+                                <li>Make payment using the UPI ID or QR code above</li>
+                                <li>Save the payment screenshot from your payment app</li>
+                                <li>Fill the form with correct UTR number</li>
+                                <li>Admin will verify and add balance within 24 hours</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="payment-form-section">
+                <div class="form-card">
+                    <h2><i class="fas fa-upload"></i> Submit Payment Proof</h2>
+                    
+                    <form method="POST" action="{{ url_for('payment_proof') }}" enctype="multipart/form-data" id="paymentForm">
+                        <div class="form-group">
+                            <label><i class="fas fa-rupee-sign"></i> Amount Paid (₹)</label>
+                            <input type="number" name="amount" required min="1" placeholder="Enter amount paid" class="form-input">
+                            <small>Enter the exact amount you paid</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-receipt"></i> UTR / Transaction ID</label>
+                            <input type="text" name="utr" required placeholder="Enter UTR number" class="form-input" pattern="[A-Za-z0-9]+" minlength="12">
+                            <small>12-digit UTR number from your payment app</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-image"></i> Payment Screenshot</label>
+                            <div class="file-upload-area" id="fileUploadArea">
+                                <input type="file" name="proof" id="proofFile" accept="image/*" required onchange="previewImage(event)">
+                                <div class="upload-placeholder" id="uploadPlaceholder">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <h3>Click to upload or drag & drop</h3>
+                                    <p>PNG, JPG, JPEG (Max 5MB)</p>
+                                </div>
+                                <div class="image-preview" id="imagePreview" style="display: none;">
+                                    <img id="previewImg" src="" alt="Preview">
+                                    <button type="button" class="btn-remove" onclick="removeImage()">
+                                        <i class="fas fa-times"></i> Remove
+                                    </button>
+                                </div>
+                            </div>
+                            <small>Upload clear screenshot showing transaction details</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-comment"></i> Additional Notes (Optional)</label>
+                            <textarea name="notes" rows="3" placeholder="Any additional information..." class="form-input"></textarea>
+                        </div>
+
+                        <button type="submit" class="btn-submit">
+                            <i class="fas fa-paper-plane"></i> Submit Payment Proof
+                        </button>
+                    </form>
+                </div>
+
+                {% if pending_payments|length > 0 %}
+                <div class="pending-section">
+                    <h3><i class="fas fa-clock"></i> Your Pending Payments</h3>
+                    <div class="pending-list">
+                        {% for payment in pending_payments %}
+                        <div class="pending-item">
+                            <div class="pending-info">
+                                <div class="pending-amount">₹{{ payment.amount }}</div>
+                                <div class="pending-details">
+                                    <div><strong>UTR:</strong> {{ payment.utr }}</div>
+                                    <div><strong>Submitted:</strong> {{ payment.timestamp }}</div>
+                                </div>
+                            </div>
+                            <span class="pending-badge">
+                                <i class="fas fa-hourglass-half"></i> Pending
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.payment-container {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+@media (max-width: 1024px) {
+    .payment-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.payment-info-section,
+.payment-form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.info-card,
+.form-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 30px;
+}
+
+.info-card h2,
+.form-card h2 {
+    font-size: 22px;
+    margin-bottom: 25px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.info-card h2 i,
+.form-card h2 i {
+    color: var(--accent-blue);
+}
+
+.qr-code-container {
+    text-align: center;
+    margin: 25px 0;
+    padding: 25px;
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+}
+
+.qr-code-container h3 {
+    margin-bottom: 20px;
+    color: var(--text-primary);
+}
+
+.qr-code {
+    max-width: 280px;
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    border: 3px solid var(--accent-blue);
+    padding: 15px;
+    background: white;
+}
+
+.upi-info {
+    margin: 25px 0;
+}
+
+.upi-info h3 {
+    margin-bottom: 15px;
+    color: var(--text-primary);
+    font-size: 18px;
+}
+
+.upi-id-box {
+    display: flex;
+    gap: 10px;
+    background: var(--bg-tertiary);
+    padding: 15px;
+    border-radius: 8px;
+    align-items: center;
+}
+
+.upi-id-box code {
+    flex: 1;
+    font-size: 16px;
+    color: var(--accent-blue);
+    font-weight: 600;
+}
+
+.btn-copy {
+    padding: 10px 20px;
+    border: none;
+    background: rgba(52, 152, 219, 0.2);
+    color: var(--accent-blue);
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.btn-copy:hover {
+    background: var(--accent-blue);
+    color: white;
+}
+
+.instructions {
+    margin: 25px 0;
+}
+
+.instructions h3 {
+    margin-bottom: 15px;
+    color: var(--text-primary);
+    font-size: 18px;
+}
+
+.instructions-text {
+    background: var(--bg-tertiary);
+    padding: 20px;
+    border-radius: 8px;
+    line-height: 1.8;
+    color: var(--text-secondary);
+}
+
+.important-note {
+    display: flex;
+    gap: 15px;
+    background: rgba(243, 156, 18, 0.1);
+    border: 2px solid var(--accent-orange);
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 25px;
+}
+
+.important-note i {
+    color: var(--accent-orange);
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.important-note strong {
+    color: var(--accent-orange);
+    display: block;
+    margin-bottom: 10px;
+}
+
+.important-note ul {
+    margin: 10px 0 0 20px;
+    color: var(--text-secondary);
+}
+
+.important-note li {
+    margin-bottom: 8px;
+}
+
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.form-group label i {
+    margin-right: 8px;
+    color: var(--accent-blue);
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.form-group small {
+    display: block;
+    margin-top: 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.file-upload-area {
+    position: relative;
+    border: 2px dashed var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-tertiary);
+    overflow: hidden;
+    transition: all 0.3s;
+}
+
+.file-upload-area:hover {
+    border-color: var(--accent-blue);
+    background: rgba(52, 152, 219, 0.05);
+}
+
+.file-upload-area input[type="file"] {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.upload-placeholder {
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.upload-placeholder i {
+    font-size: 48px;
+    color: var(--accent-blue);
+    margin-bottom: 15px;
+}
+
+.upload-placeholder h3 {
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.upload-placeholder p {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.image-preview {
+    padding: 20px;
+    text-align: center;
+}
+
+.image-preview img {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.btn-remove {
+    padding: 10px 20px;
+    border: none;
+    background: rgba(231, 76, 60, 0.2);
+    color: var(--accent-red);
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.btn-remove:hover {
+    background: var(--accent-red);
+    color: white;
+}
+
+.btn-submit {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    background: var(--accent-blue);
+    color: white;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s;
+    margin-top: 10px;
+}
+
+.btn-submit:hover {
+    background: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(52, 152, 219, 0.4);
+}
+
+.pending-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 25px;
+}
+
+.pending-section h3 {
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pending-section h3 i {
+    color: var(--accent-orange);
+}
+
+.pending-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.pending-item {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pending-info {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.pending-amount {
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--accent-green);
+}
+
+.pending-details {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.pending-details div {
+    margin-bottom: 5px;
+}
+
+.pending-badge {
+    padding: 8px 15px;
+    background: rgba(243, 156, 18, 0.2);
+    color: var(--accent-orange);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.balance-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(46, 204, 113, 0.2);
+    padding: 10px 20px;
+    border-radius: 10px;
+    color: var(--accent-green);
+    font-size: 18px;
+    font-weight: bold;
+}
+</style>
+
+<script>
+function copyUPI() {
+    const upiId = document.getElementById('upiId').textContent;
+    navigator.clipboard.writeText(upiId).then(() => {
+        alert('UPI ID copied to clipboard!');
+    });
+}
+
+function previewImage(event) {
+    const file = event.target.files[0];
+    if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File size must be less than 5MB');
+            event.target.value = '';
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('uploadPlaceholder').style.display = 'none';
+            document.getElementById('imagePreview').style.display = 'block';
+            document.getElementById('previewImg').src = e.target.result;
+        }
+        reader.readAsDataURL(file);
+    }
+}
+
+function removeImage() {
+    document.getElementById('proofFile').value = '';
+    document.getElementById('uploadPlaceholder').style.display = 'block';
+    document.getElementById('imagePreview').style.display = 'none';
+}
+
+// Form validation
+document.getElementById('paymentForm').addEventListener('submit', function(e) {
+    const amount = document.querySelector('input[name="amount"]').value;
+    const utr = document.querySelector('input[name="utr"]').value;
+    const file = document.getElementById('proofFile').files[0];
+    
+    if (!file) {
+        e.preventDefault();
+        alert('Please upload payment screenshot');
+        return;
+    }
+    
+    if (utr.length < 12) {
+        e.preventDefault();
+        alert('UTR number must be at least 12 characters');
+        return;
+    }
+});
+</script>
+{% endblock %}

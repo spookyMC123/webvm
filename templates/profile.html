@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Profile - {{ settings.panel_name }}{% endblock %}
+{% block content %}
+<div class="main-container">
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            {% if settings.logo %}<img src="{{ settings.logo }}" class="sidebar-logo">{% else %}<i class="fas fa-server sidebar-icon"></i>{% endif %}
+            <h2>{{ settings.panel_name }}</h2>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> Dashboard</a></li>
+            <li><a href="{{ url_for('plans') }}"><i class="fas fa-box"></i> Plans</a></li>
+            <li class="active"><a href="{{ url_for('profile') }}"><i class="fas fa-user"></i> Profile</a></li>
+            {% if user.role == 'admin' %}<li><a href="{{ url_for('admin_panel') }}"><i class="fas fa-cog"></i> Admin Panel</a></li>{% endif %}
+            <li><a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+        </ul>
+    </nav>
+    <div class="main-content">
+        <h1><i class="fas fa-user-circle"></i> My Profile</h1>
+        {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}{% for category, message in messages %}<div class="alert alert-{{ category }}">{{ message }}</div>{% endfor %}{% endif %}{% endwith %}
+        <div class="profile-card">
+            <form method="POST">
+                <div class="form-group"><label>Username</label><input type="text" value="{{ user.username }}" disabled></div>
+                <div class="form-group"><label>Email</label><input type="email" name="email" value="{{ user.email }}"></div>
+                <div class="form-group"><label>Role</label><input type="text" value="{{ user.role }}" disabled></div>
+                <div class="form-group"><label>Theme</label><select name="theme"><option value="dark" {% if user.theme == 'dark' %}selected{% endif %}>Dark</option><option value="light" {% if user.theme == 'light' %}selected{% endif %}>Light</option></select></div>
+                <div class="form-group"><label>New Password (optional)</label><input type="password" name="new_password" placeholder="Leave blank to keep current"></div>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
+            </form>
+        </div>
+    </div>
+</div>
+<style>.profile-card{background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:10px;padding:30px;max-width:600px}</style>
+{% endblock %}
